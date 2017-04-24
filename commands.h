@@ -27,9 +27,22 @@ int BgCmd(char* lineSize, void* jobs);
 int ExeCmd(void* jobs, char* lineSize, char* cmdString);
 void ExeExternal(char *args[MAX_ARG], char* cmdString);
 
-class cmdHistory {
-public:
-	cmdHistory();
-};
+class cmdHistory
+{
+	public:
+	cmdHistory();		
+	virtual ~cmdHistory();	
+	void setPWDs(std::string PWD);	
+	protected:
+	std::string prevPWD;
+	std::string PWD;
+}
+
+class Jobs
+{
+	public:
+	protected:
+}
+
 #endif
 
