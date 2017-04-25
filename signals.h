@@ -7,6 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <vector>
+#include <commands.h>
+typedef enum { FALSE, TRUE } bool;
+typedef enum { FOREGROUND, BACKGROUND, INTERRUPTED } currState;
+typedef enum { FAILURE, SUCCESS } Result;
 
 //**************************************************************************************	 	 		 	 
 // function name:Signal_Printer	 	 	 
@@ -20,7 +25,7 @@ void Signal_Printer(int sig_num,int pid);
 //**************************************************************************************	 	 	
 // function name:SIGTSTP_Handler	 		 	 	
 // Description:Handler for the signal for Ctrl + Z	(SIGTSTP)
-// Parameters:sig_num: -	 	 	
+// Parameters:-	 	 	
 //**************************************************************************************	 	 	 
 void SIGTSTP_Handler();	 	 	 		 
 
@@ -29,7 +34,7 @@ void SIGTSTP_Handler();
 //**************************************************************************************	 	 		
 // function name:SIGINT_Handler	 	 	
 // Description:Handler for the signal for Ctrl + C (SIGINT) 
-// Parameters:sig_num: -	 	 	 
+// Parameters:-	 	 	 
 //**************************************************************************************	 	 	 
 void SIGINT_Handler();	 	 	
 

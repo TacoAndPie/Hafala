@@ -6,11 +6,14 @@
 /* Name: handler_cntlc
    Synopsis: handle the Control-C */
 #include "signals.h"
+typedef enum { FALSE, TRUE } bool;
+typedef enum { FOREGROUND, BACKGROUND, INTERRUPTED } currState;
+typedef enum { FAILURE, SUCCESS } Result;
 
 extern int kill_cmd;
 extern int GPID;
-extern char* L_foreGround_Cmd;
-extern LIST_ELEMENT* Jobs;
+extern string L_foreGround_Cmd;
+extern vector<Job> JobsVec;
 
 //**************************************************************************************	 	 		 	 
 // function name: Signal_Printer	 	 	 
@@ -113,10 +116,11 @@ void Signal_Printer(int sig_num,int pid){
 		default : 
 			sigName= "UNKNOWN"; 	 	 	
 	}
-	cout<<"smash > signal "<<sigName<<" was sent to pid "<<pid<<endl;                  	 		 	 	 	 
-	if (kill(pid, sig_num)!=0) { 	 	 		 	 		 	
+	if (kill(pid, sig_num)) 	 		 	 		 	
 		perror("smash error: > kill failed");                  	 			 	 	
-	}
+	else
+		cout<<"smash > signal "<<sigName<<" was sent to pid "<<pid<<endl;                  	 		 	 	 	 
+	
 }
 
 
@@ -127,53 +131,34 @@ void Signal_Printer(int sig_num,int pid){
 //**************************************************************************************	 	 	
 // function name:SIGTSTP_Handler	 		 	 	
 // Description:Handler for the signal for Ctrl + Z	(SIGTSTP)
-// Parameters:sig_num: Signal number	 	 	
+// Parameters:-	 	 	
 //**************************************************************************************	 	 	 
 
 
 void SIGTSTP_Handler(){ 		 	 		 
 	if (GPID<=0) 	 	 	 
-	{ 		 	 
-		if (kill_cmd!=-1) 	 	 	
-		{	 	 	 
-			Signal_Printer(SIGTSTP,kill_cmd); 	 	 
-			LIST_ELEMENT* JobIt= Jobs;	 	 	 
-			while (JobIt){	 	 	 
-				if (JobIt->pID==kill_cmd) 	 	 	 
-				{	 	 
-					JobIt->suspended= 1;	 	 
-				}	  	
-				JobIt= JobIt->pNext;	 	 
-			}	 	 
-		} 	 	 	 
-		
-	} 	 	 
-	else 	 	 
-	{	 
-		Signal_Printer(SIGTSTP, GPID);	 	 	
-		if (GetId(&Jobs, GPid)==-1)  	 	 	 
-		{ 	 	 		 	 
-			if (InsertAtEnd(&Jobs,L_foreGround_Cmd,0,GPID,1)==1) 	 	 
-			{	 		 	
-				printf("smash error :> adding a Suspended job failed\n");	 	 	 
-				exit(1);	 	 	 	
-			} 	
-		}	 	 
-		else 	 	 		 
-		{ 	 	 	 		  
-			LIST_ELEMENT* JobIt= Jobs;	 		 	 	
-			while (JobIt) { 	 	 	 	 
-				if (JobIt->pID==GPID)  	 	 	
-				{	 	 	 	
-					JobIt->suspended= 1;	 	 	 	
-				}	 	 	 	 
-				JobIt= JobIt->pNext;	 	 	 
-			}	 	 		 	 		 
-		}	 	 	
-		GPID= -1;	 	 	 
-		L_foreGround_Cmd[0]= '\0';	 
-	}
-	return;
+	{ 		 	  		 
+		return;	 	 	
+	} 	 	 	 	 	 
+	cout<<endl;		 	 	
+	Signal_Printer(SIGTSTP, GPID);	
+	for(int i=0; i < JobsVec.size(); i++)
+	{	
+		if(JobsVec[i].pid==GPID) 	 //if we found it, end the program	 	
+		{	 	
+			JobsVec[i].curr_state(INTERRUPTED);	 	 		
+			GPID = -1; 
+			return;			
+	 	 			
+		}
+	}		
+	//if not, add it
+	JobsVec.push_back(Job(GPID,L_foreGround_Cmd,(time_t)0,BACKGROUND)); 		 
+	JobsVec[JobsVec.size()-1].curr_state(INTERRUPTED);	
+	GPID = -1; 
+	return;		
+	 	 
+
 }
 
 
@@ -181,22 +166,14 @@ void SIGTSTP_Handler(){
 //**************************************************************************************	 	 		
 // function name:SIGINT_Handler	 	 	
 // Description:Handler for the signal for Ctrl + C (SIGINT) 
-// Parameters:sig_num: -	 	 	 
+// Parameters:-	 	 	 
 //**************************************************************************************	 	 	 
 void SIGINT_Handler(){
-	
-	I
 	if (GPID <= 0) { 
-		return;
+		return;	 	 	 		
 	}
-	Signal_Printer(SIGINT, GPID);	
-	if(DelPID(&Jobs, GPID)==1)
-	{
-		printf("smash error :> deleting a job failed\n");
-		exit(1);
-	}
-		
-	GPID = -1;
-	L_foreGround_Cmd[0] = '\0';
-	return;
+	cout<<endl	 	 	
+	Signal_Printer(SIGINT, GPID);		 	 
+	GPID = -1;	 	 
+	return;	 	 	 
 } 	 
