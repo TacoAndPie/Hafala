@@ -7,25 +7,50 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <list>
 #include <sys/types.h>
 #include <sys/wait.h>
 #define MAX_LINE_SIZE 80
 #define MAX_ARG 20
 #define MAX_HISTORY_SIZE 50
+#define MAX_JOBS_NUM 100
 typedef enum { FALSE, TRUE } bool;
 typedef enum { FOREGROUND, BACKGROUND, INTERRUPTED } currState;
 typedef enum { FAILURE, SUCCESS } Result;
 #include "commands.h"
 
 cmdHistory CommandHistory;
+Job ForeGroundJob; //represents the only Job that will be in the foreground at a time.
+Job* JobList;
 
-//********************************************
+
+//**************************************************************************************
+// function name: RemoveKilledJob
+// Description: Updates joblist after a job is killed
+// Parameters: pointer to JobList (used STL list for convenience)
+// Returns: none
+//**************************************************************************************
+void RemoveKilledJobs(std::list<Job>* JobList)
+{
+	std::list<Job>::iterator it = JobList->begin();
+	while (it != JobList->end())
+	{
+		if (waitpid(it->pid, NULL, WNOHANG) != 0)
+		{
+			JobList->erase(it++);
+		}
+		else
+			++it;
+	}
+}
+}
+//**************************************************************************************
 // function name: ExeCmd
 // Description: interperts and executes built-in commands
 // Parameters: pointer to jobs, command string
 // Returns: 0 - success,1 - failure
 //**************************************************************************************
-int ExeCmd(void* jobs, char* lineSize, char* cmdString)
+int ExeCmd(Job JobList, char* lineSize, char* cmdString) //void* jobs
 {
 	char* cmd; 
 	char* args[MAX_ARG];
@@ -60,13 +85,13 @@ int ExeCmd(void* jobs, char* lineSize, char* cmdString)
 			{
 				CommandHistory.swapCurrAndPrev();
 			}
-			else if (chdir(args[1]) == 0)//successfully changed directories
+			else if (chdir(args[1]) == 0)// successfully changed directories
 			{
 				CommandHistory.updateHistory(args[1]);//or getcwd?
 			}
 			else
 			{
-				printf("smash error:> %s -path not found\n", args[1]);
+				printf("smash error : > %s -path not found\n", args[1]);
 				return 1;
 			}
 		}
@@ -75,24 +100,67 @@ int ExeCmd(void* jobs, char* lineSize, char* cmdString)
 	/*************************************************/
 	else if (!strcmp(cmd, "pwd")) 
 	{
-		
+		if (num_arg != 0)	illegal_cmd = TRUE;
+		else if (CommandHistory.get_pwd().empty())
+		{
+			perror("smash error : > pwd has not been set"); 
+			return 1;
+		}
+		else
+		{
+			printf("%s\n", CommandHistory.get_pwd());
+		}
 	}
 	
 	/*************************************************/
-	else if (!strcmp(cmd, "mkdir"))
+	else if (!strcmp(cmd, "mkdir"))// DO WE NEED?
 	{
- 		
+		
 	}
 	/*************************************************/
 	
 	else if (!strcmp(cmd, "jobs")) 
 	{
- 		
+		if (num_arg != 0) 
+		{
+			illegal_cmd = TRUE;
+		}
+		else
+		{
+			Job* temp = JobList;
+			time_t now;
+			int i = 1;
+			if (time(&now) == -1) 
+			{
+				perror("smash error: > time not found");
+				return 0;
+			}
+			while (temp) 
+			{ 
+				int runTime = difftime(now, temp->startTime); 
+				if (temp->curr_state == INTERRUPTED) {
+					printf("[%d] %s : %d %d secs (Stopped)\n", i, temp->name, temp->pid, runTime);
+				}
+				else {
+					printf("[%d] %s : %d %d secs\n", i,	temp->name, temp->pid, runTime);
+				}
+				temp = temp->next;
+				i++;
+			}
+		}
+		
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "showpid")) 
 	{
-		
+		if (num_arg != 0)
+		{
+			illegal_cmd = TRUE;
+		}
+		else
+		{
+			printf("smash pid is %d\n", (int)getpid());
+		}
 	}
 	/*************************************************/
 	else if (!strcmp(cmd, "fg")) 
@@ -107,8 +175,53 @@ int ExeCmd(void* jobs, char* lineSize, char* cmdString)
 	/*************************************************/
 	else if (!strcmp(cmd, "quit"))
 	{
-   		
+		if ((num_arg != 0 && num_arg != 1) || (num_arg == 1 && args[1] != "kill"))
+		{
+			illegal_cmd = TRUE;
+		}
+		else if (num_arg == 0)// exit smash
+		{
+			exit(0)
+		}
+		else // args[1] == "kill"
+		{
+			Job* temp = JobList;
+			while(temp != NULL)
+			{
+				kill(temp.pid, SIGTERM);
+				fprintf(stdout, "[%d] %s - Sending SIGTERM...");
+				if (kill(temp.pid, 0) != -1) // haven't terminated process yet
+				{
+					sleep(5); // if still alive after 5 seconds, send SIGKILL
+					if (waitpid(temp.pid, NULL, WNOHANG) != temp.pid)
+					{
+						fprintf(stdout, "(5 sec passed) Sending SIGKILL...");
+						kill(temp.pid, SIGKILL);
+						fprintf(stdout, "Done.");
+					}
+				}
+				else	fprintf(stdout, "Done.");
+				temp = temp.next;
+			}
+		}
 	} 
+	/*************************************************/
+	else if (!strcmp(cmd, "kill"))// use RemoveKilledJob at end
+	{
+
+	}
+	/*************************************************/
+	else if (!strcmp(cmd, "history"))
+	{
+		if (num_arg != 0)
+		{
+			illegal_cmd = TRUE;
+		}
+		else
+		{
+			CommandHistory.print();
+		}
+	}
 	/*************************************************/
 	else // external command
 	{
@@ -135,7 +248,7 @@ void ExeExternal(char *args[MAX_ARG], char* cmdString)
 	{
     		case -1: 
 					// Add your code here (error)
-					
+				perror("smash error:> fork failed");
 					/* 
 					your code
 					*/

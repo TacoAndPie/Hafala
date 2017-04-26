@@ -61,22 +61,18 @@ private:
 class Job
 {
 public:
-	Job() : pid(-1), name(""), TimeInList((time_t)0), curr_state(background) {}; //default overwrite
-	Job(int pid_, std::string name, time_t time, currState state) : pid(pid_), jobname(name), TimeInList(time), currState(state) {};
+	Job() : pid(-1), name(""), TimeInList((time_t)0), curr_state(background), next(NULL), jobCount(0) {}; //default overwrite
+	Job(int pid_, std::string name, time_t time, currState state, Job* next_job int count) : pid(pid_), jobname(name), TimeInList(time), currState(state), Job*(NULL) jobCount(count) {};
 	virtual ~Job() {};
 
 	int pid;
 	std::string name;
 	time_t TimeInList;
-	currState curr_state
-};
-/* started by using struct but easier to use class.
-typedef struct _Job {
-	int pid;
-	std::string name;
-	time_t startingTime;
 	currState curr_state;
-};*/
+	Job* next;
+	const int jobCount;
+};
+
 
 
 //**************************************************************************************
