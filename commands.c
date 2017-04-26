@@ -23,27 +23,91 @@ cmdHistory CommandHistory;
 Job ForeGroundJob; //represents the only Job that will be in the foreground at a time.
 Job* JobList;
 
+//**************************************************************************************
+// function name: RemoveFromList
+// Description: removes an element from a list (doesn't delete)
+// Parameters: pointer to jobsList, PID
+// Returns: none
+//**************************************************************************************
+Result RemoveFromList(Job* JobList, int pid)
+{
+	Job* temp1 = JobList;
+	Job* temp2 = JobList;
+	int i = 0;
+	while (temp1->pid != pid)
+	{
+		if (temp1 == NULL) return FAILURE;
+		i++;
+		temp1 = temp1->next;
+	}
+	if (i == 0)
+	{
+		JobList = JobList->next;
+		return SUCCESS;
+	}
+	else
+	{
+		for (int j = 0; j < i; j++)
+		{
+			temp2 = temp2->next;
+		}
+		if (temp1->next == NULL)
+		{
+			temp2->next = NULL;
+		}
+		else
+		{
+			temp2->next = temp1->next;
+			temp1->next = NULL;
+		}
+		return SUCCESS;
+	}
+	else return FAILURE;
+}
 
 //**************************************************************************************
 // function name: RemoveKilledJob
 // Description: Updates joblist after a job is killed
-// Parameters: pointer to JobList (used STL list for convenience)
+// Parameters: pointer to JobList 
 // Returns: none
 //**************************************************************************************
-void RemoveKilledJobs(std::list<Job>* JobList)
+void RemoveKilledJobs(Job* JobList)
 {
-	std::list<Job>::iterator it = JobList->begin();
-	while (it != JobList->end())
+	Job* temp = JobList;
+	while (temp != NULL)
 	{
-		if (waitpid(it->pid, NULL, WNOHANG) != 0)
+		if (waitpid(temp->pid, NULL, WNOHANG) != 0)
 		{
-			JobList->erase(it++);
+			RemoveFromList(JobList, temp->pid);
 		}
 		else
-			++it;
+			temp = temp->next;
 	}
 }
+//**************************************************************************************
+// function name: RemoveForeGroundJob
+// Description: Updates joblist after a job is put in foreground (used in fg)
+// Parameters: pointer to JobList 
+// Returns: none
+//**************************************************************************************
+void RemoveForeGroundJob(std::list<Job>* JobList)
+{
+	Job* temp = JobList;
+	while (temp != NULL)
+	{
+		if (temp->state == FOREGROUND)
+		{
+			RemoveFromList(JobList, temp->pid);
+			return;
+		}
+		else
+			temp = temp->next;
+	}
 }
+
+
+
+
 //**************************************************************************************
 // function name: ExeCmd
 // Description: interperts and executes built-in commands
@@ -137,7 +201,7 @@ int ExeCmd(Job JobList, char* lineSize, char* cmdString) //void* jobs
 			}
 			while (temp) 
 			{ 
-				int runTime = difftime(now, temp->startTime); 
+				int runTime = difftime(now, temp->TimeInList); 
 				if (temp->curr_state == INTERRUPTED) {
 					printf("[%d] %s : %d %d secs (Stopped)\n", i, temp->name, temp->pid, runTime);
 				}
@@ -165,7 +229,57 @@ int ExeCmd(Job JobList, char* lineSize, char* cmdString) //void* jobs
 	/*************************************************/
 	else if (!strcmp(cmd, "fg")) 
 	{
-		
+		Job* temp = JobList;
+		if (num_arg == 0) { // find the last process
+			
+			int count = temp->jobCount;
+			if (count == 0) {
+				perror("smash error: > no jobs in background");
+				return 0;
+			}
+			else
+			{
+				for (int i = 0; i < count; i++) // going to last job in JobList
+				{
+					temp = temp.next;
+				}
+				ForeGroundJob = &temp;
+				temp.curr_state = FOREGROUND;
+				RemoveForeGroundJob(JobList, temp->pid);
+			}
+		}
+		else if (num_arg == 1) {
+			
+			int count = temp->jobCount;
+			if (count == 0) {
+				perror("smash error: > no jobs in background");
+				return 0;
+			}
+			// check if num id is llegal
+			int jobNum = atoi(args[1]);
+			if (jobNum > JobList->jobCount)
+			{
+				perror("smash error: > job not found");
+			}
+			else
+			{
+				while (jobNum > 0)
+				{
+					temp = temp->next;
+					jobNum--;
+				}
+				temp->curr_state = FOREGROUND;
+				RemoveForeGroundJob(JobList, temp->pid);
+			}
+		}
+		else 
+		{
+			illegal_cmd = TRUE;
+		}
+		if (illegal_cmd == FALSE) 
+		{
+			printf("%s\n", temp->name);
+		}
 	} 
 	/*************************************************/
 	else if (!strcmp(cmd, "bg")) 
@@ -220,6 +334,7 @@ int ExeCmd(Job JobList, char* lineSize, char* cmdString) //void* jobs
 		else
 		{
 			CommandHistory.print();
+			CommandHistory.UpdateHistory(cmdString);
 		}
 	}
 	/*************************************************/
@@ -315,73 +430,3 @@ int BgCmd(char* lineSize, void* jobs)
 	return -1;
 }
 
-//**************************************************************************************
-// function name: History
-// Description: Constructor
-// Parameters: none
-// Returns: history object initialized to empty history, and PWD, and LastPWD are set
-//**************************************************************************************
-cmdHistory::cmdHistory() : historyCount(MAX_HISTORY_SIZE), PWD(""), prevPWD("")
-{
-	char pwd_buff[MAX_LINE_SIZE];//in case of failure, save in temp buffer
-	if (getcwd(pwd_buff, MAX_LINE_SIZE + 1) == NULL)
-	{
-		perror("smash error : > Can't find current working directory"); //send error message
-	}
-	else
-	{
-		PWD = (std::string)pwd_buff;
-		LastPWD = PWD;
-	}
-}
-
-
-//**************************************************************************************
-// function name: updateHistory
-// Description: add the last cmd to the history, including illegal/failed ones
-// Parameters: command string
-// Returns: none
-//**************************************************************************************
-void cmdHistory::updateHistory(std::string cmdString)
-{
-
-	if (cmdString.empty())	return;
-
-	cmdHistoryArr.push_back(cmdString);
-	if ((int)HistoryList.size() > maxhistory) HistoryList.pop_front();
-}
-
-//**************************************************************************************
-// function name: printHistory
-// Description: print all commands in our history array
-// Parameters: none
-// Returns: none
-//**************************************************************************************
-void cmdHistory::print()
-{
-	for (int i = 0; i < this->historyCount; i++) {
-		printf("%c\n", this->cmdHistoryArr[i]);
-	}
-}
-
-//**************************************************************************************
-// function name: setPWDandLastPWD
-// Description: update the PWD and the LastPWD
-// Parameters: newPWD
-// Returns: none
-//**************************************************************************************
-void History::setPWDandLastPWD(std::string newPWD)
-{
-	LastPWD = PWD;
-	//PWD = newPWD;
-	char pwd_buff[MAX_LINE_SIZE];//in case of failure, save in temp buffer
-	if (getcwd(pwd_buff, MAX_LINE_SIZE + 1) == NULL)
-	{
-		perror("smash error : > Can't find current working directory"); //send error message
-		PWD = "";
-	}
-	else
-	{
-		PWD = (std::string)pwd_buff;
-	}
-}
