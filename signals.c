@@ -12,8 +12,8 @@ typedef enum { FAILURE, SUCCESS } Result;
 
 extern int kill_cmd;
 extern int GPID;
-extern string L_foreGround_Cmd;
-extern vector<Job> JobsVec;
+extern string L_Fg_Cmd;
+extern vector<Job> jobs;
 
 //**************************************************************************************	 	 		 	 
 // function name: Signal_Printer	 	 	 
@@ -142,19 +142,19 @@ void SIGTSTP_Handler(){
 	} 	 	 	 	 	 
 	cout<<endl;		 	 	
 	Signal_Printer(SIGTSTP, GPID);	
-	for(int i=0; i < JobsVec.size(); i++)
+	for(int i=0; i < jobs.size(); i++)
 	{	
-		if(JobsVec[i].pid==GPID) 	 //if we found it, end the program	 	
+		if(jobs[i].pid==GPID) 	 //if we found it, end the program	 	
 		{	 	
-			JobsVec[i].curr_state(INTERRUPTED);	 	 		
+			jobs[i].curr_state(INTERRUPTED);	 	 		
 			GPID = -1; 
 			return;			
 	 	 			
 		}
 	}		
 	//if not, add it
-	JobsVec.push_back(Job(GPID,L_foreGround_Cmd,(time_t)0,BACKGROUND)); 		 
-	JobsVec[JobsVec.size()-1].curr_state(INTERRUPTED);	
+	jobs.push_back(Job(GPID,L_Fg_Cmd,(time_t)0,BACKGROUND)); 		 
+	jobs[jobs.size()-1].curr_state(INTERRUPTED);	
 	GPID = -1; 
 	return;		
 	 	 

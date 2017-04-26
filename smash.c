@@ -8,13 +8,19 @@ main file. This file contains the main function of smash
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <string>
+
+#include <vector>
+#include <ctime>
 #include "commands.h"
 #include "signals.h"
 #define MAX_LINE_SIZE 80
 #define MAXARGS 20
 
 char* L_Fg_Cmd;
-void* jobs = NULL; //This represents the list of jobs. Please change to a preferred type (e.g array of char*)
+extern int GPID;
+
+vector<Job> jobs;  //This represents the list of jobs. Please change to a preferred type (e.g array of char*)
 char lineSize[MAX_LINE_SIZE]; 
 //**************************************************************************************
 // function name: main
@@ -24,21 +30,28 @@ int main(int argc, char *argv[])
 {
     char cmdString[MAX_LINE_SIZE]; 	   
 
-	
-	//signal declaretions
-	//NOTE: the signal handlers and the function/s that sets the handler should be found in siganls.c
-	 /* add your code here */
+	 
+   
 	
 	/************************************/
-	//NOTE: the signal handlers and the function/s that sets the handler should be found in siganls.c
-	//set your signal handlers here
-	/* add your code here */
+	// signals
+	struct SignalActive a_SIGINT, a_SIGTSTP;
+	
+	a_SIGINT.sa_handler = &SIGINT_Handler;
+	sigemptyset(&a_SIGINT.sa_mask);
+	SignalActive(SIGINT,&a_SIGINT,NULL);
+	
+	
+	a_SIGTSTP.sa_handler = &SIGTSTP_Handler;
+	sigemptyset(&a_SIGTSTP.sa_mask);
+	SignalActive(SIGTSTP,&a_SIGTSTP,NULL);
 
-	/************************************/
+	
 
+\
 	/************************************/
 	// Init globals 
-
+GPID = -1;
 
 	
 	L_Fg_Cmd =(char*)malloc(sizeof(char)*(MAX_LINE_SIZE+1));
